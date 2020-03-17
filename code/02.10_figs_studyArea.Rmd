@@ -1,0 +1,163 @@
+---
+title: "Figures"
+author: "Jill Deines"
+date: "8/24/2019"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    keep_md: true
+---
+
+Goal: Make study area figure
+
+Items to plot:
+
+* groundwater depletion timeframes
+* current irrigation
+* county bounds
+
+```{r knitrOpts, echo=FALSE}
+library(knitr)
+opts_chunk$set(cache=FALSE, fig.path='../figure/02.10_figStudyArea/')
+```
+
+**R Packages Needed**
+
+```{r packages, message=FALSE, echo=TRUE, eval=TRUE}
+library(tidyverse)
+library(sf)
+library(here)  
+library(raster)
+
+library(rgdal)
+library(latticeExtra)
+library(RColorBrewer)
+
+# directories:
+rootDir <- here::here() # for setting path to local repo data folder
+
+sessionInfo()
+```
+
+
+# Load
+
+## Spatial Boundaries
+Reproject to the MSU CLASS project projection, which is an AEA with a modified center line so the aquifer is centered and aligned vertically
+
+```{r loadSpatial}
+# load county polygons
+gisDir <- paste0(rootDir, '/data/gis/boundaries')
+classProj <- '+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-101 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0'
+
+counties <- read_sf(paste0(gisDir,
+        '/tigris_2012_counties_100_inMinBoundBuff.geojson')) %>%
+  st_transform(classProj) %>%
+  rename(fips5 = masterid) %>%
+  dplyr::select(c(fips5))
+
+# background polygons as spdf
+states_sf <- read_sf(paste0(gisDir, '/States_continental.shp')) %>%
+  st_transform(classProj) 
+states <- states_sf %>%
+  as_Spatial()
+
+minBound <- read_sf(paste0(gisDir,'/HPA_MinimumBound.shp')) %>%
+  st_transform(classProj) %>%
+  as_Spatial()
+
+aquifer_sf <- read_sf(paste0(gisDir,'/Aquifer_Regions_dissolve.shp')) %>%
+  st_transform(classProj) %>%
+  st_simplify()
+aquifer <- aquifer_sf %>%
+  as_Spatial()
+
+county6 <- counties %>% 
+  filter(fips5 %in% c('20055','48111','31057','08125','35041','40139')) %>%
+  as_Spatial()
+```
+
+# Make maps
+
+## Depletion
+
+laod depletion data
+
+```{r loaddepletion}
+rasDir <- paste0(rootDir, '/data/gis/studyArea_rasters')
+
+depletion <- raster(paste0(rasDir, '/depletion_predictions_Haacker2016.tif'))
+
+# reproject and clip precip
+depletionClass <- projectRaster(depletion, res = 1000, crs=classProj)
+depletionClassCrop <- crop(depletionClass, aquifer)
+depletionClassMask <- mask(depletionClassCrop, aquifer)
+# set max visuzalized values between 2300-2400 class
+depletionClassMask[depletionClassMask > 2390] <- 2350
+```
+
+```{r depletionMap, fig.width = 3, fig.height = 5, dev = 'png',  dpi = 300}
+palNum <- 9
+breaks <- c(2000,2025,2050,2075,2100,2125,2150,2175,2200,2300,3500)
+
+colPal <- rev(brewer.pal(palNum, 'YlOrRd'))
+
+depPal2 <- c(colPal,'gray60')
+
+# no lines
+spplot(depletionClassMask, col.regions = depPal2,  colorkey=list(space='bottom'),
+       at = c(2000,2025,2050,2075,2100,2125,2150,2175,2200,2300,2400),
+       axes = TRUE,
+       maxpixels = 1000000,
+       par.settings=list(axis.line=list(col=NA))) +
+  latticeExtra::layer(sp.polygons(aquifer, fill = 'gray10',lwd=.8),under=T) +
+  latticeExtra::layer(sp.polygons(aquifer, lwd=.8))  +
+  latticeExtra::layer(sp.polygons(states, lwd=.8, col='gray20')) +
+  latticeExtra::layer(sp.polygons(county6, lwd = 2, col = 'blue'))
+
+# for color key with outlines
+spplot(depletionClassMask, col.regions = depPal2,  colorkey=list(space='bottom'),
+       at = c(2000,2025,2050,2075,2100,2125,2150,2175,2200,2300,2400),
+       axes = TRUE) +
+  latticeExtra::layer(sp.polygons(aquifer, fill = 'gray10',lwd=.8),under=T)   +
+  latticeExtra::layer(sp.polygons(states, lwd=.8, col='gray30')) 
+```
+
+## Irrigation: Current
+
+load irrigated area
+
+```{r irrLoad}
+irrigation <- raster(paste0(rasDir,
+               '/2015-2017_AIM-HPA_finalMaps_currentIrrigation.tif'))
+
+irrClass <- projectRaster(irrigation, res = 450, crs=classProj)
+irrClassCrop <- crop(irrClass, aquifer)
+irrClassMask <- mask(irrClassCrop, aquifer)
+```
+
+
+```{r irrMap, fig.width = 3, fig.height = 5, dev = 'png', dpi = 300}
+
+# no lines
+spplot(irrClassMask, col.regions = c('gray50','darkgoldenrod1'), 
+       at = c(0,.9,1.1),
+       colorkey=list(space='bottom'),
+       maxpixels = 1000000,
+       par.settings=list(axis.line=list(col=NA))) +
+  #latticeExtra::layer(sp.polygons(aquifer, fill = 'gray10',lwd=.8),under=T) +
+  latticeExtra::layer(sp.polygons(aquifer, lwd=.8))  +
+  latticeExtra::layer(sp.polygons(states, lwd=.8, col='gray20')) +
+  latticeExtra::layer(sp.polygons(county6, lwd = 2, col = 'blue'))
+```
+
+# inset
+
+```{r inset, fig.width = 2, fig.height = 1.5, dpi = 300, dev = c('png','pdf')}
+plot(states_sf[1], col = NA, reset = FALSE, main = NA)
+#plot(minBound_sf, col = 'lightblue', add = TRUE, border = 'lightblue')
+plot(aquifer_sf, col = 'dodgerblue1', add = TRUE, lwd = 0.25, border = 'gray35')
+plot(states_sf[1], col = NA, add = TRUE)
+```
+
