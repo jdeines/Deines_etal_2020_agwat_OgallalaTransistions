@@ -1,0 +1,174 @@
+---
+title: "Figure 2: Irrigation Projections by County"
+author: "Jill Deines"
+date: "8/17/2019"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    keep_md: true
+---
+
+Goal: Make figure showing results by county
+
+Items to plot:
+
+* total irrigated acres lost by 2100
+* percent of lost acres going to pasture
+
+```{r knitrOpts, echo=FALSE}
+library(knitr)
+opts_chunk$set(cache=FALSE, fig.path='../figure/02.20_figsCountyProjections/')
+```
+
+**R Packages Needed**
+
+```{r packages, message=FALSE, echo=TRUE, eval=TRUE}
+library(tidyverse)
+library(sf)
+library(here)  
+
+library(rgdal)
+library(latticeExtra)
+library(RColorBrewer)
+
+# directories:
+rootDir <- here::here() # for setting path to local repo data folder
+
+# formatted data master file (in data/tabular)
+masterFilename <- 'counties_allAquiferContained_Irr_currentRecent_rserev1_annualIrrLoss_rsSuit_acres_billFormated_allCounties_master.csv'
+
+sessionInfo()
+```
+
+
+# Load
+
+## Spatial Boundaries
+Reproject to the MSU CLASS project projection, which is an AEA with a modified center line so the aquifer is centered and aligned vertically
+
+```{r loadSpatial}
+# load county polygons
+gisDir <- paste0(rootDir, '/data/gis/boundaries')
+classProj <- '+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-101 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0'
+
+counties <- read_sf(paste0(gisDir,
+        '/tigris_2012_counties_100_inMinBoundBuff.geojson')) %>%
+  st_transform(classProj) %>%
+  rename(fips5 = masterid) %>%
+  dplyr::select(c(fips5))
+
+county6 <- counties %>% 
+  filter(fips5 %in% c('20055','48111','31057','08125','35041','40139')) %>%
+  as_Spatial()
+
+# bakcground polygons as spdf
+states <- read_sf(paste0(gisDir, '/States_continental.shp')) %>%
+  st_transform(classProj) %>%
+  as_Spatial()
+
+minBound <- read_sf(paste0(gisDir,'/HPA_MinimumBound.shp')) %>%
+  st_transform(classProj) %>%
+  as_Spatial()
+
+aquifer <- read_sf(paste0(gisDir,'/Aquifer_Regions_dissolve.shp')) %>%
+  st_transform(classProj) %>%
+  st_simplify() %>%
+  as_Spatial()
+```
+
+## Datasets
+this was in acres for bill, so convert to ha
+
+```{r loadData}
+master0 <- read_csv(paste0(rootDir, '/data/tabular/', masterFilename))
+
+# extract values of interest
+master <- master0 %>%
+  filter(year == 2100) %>%
+  mutate(irrAreaLost_ha = (totalLostDrylandAg + totalLostPasture) /  2.471,
+           percentLost_pasture = percentLost_pasture*100,
+         percentLost_pasture2 = (totalLostPasture/(totalLostDrylandAg + totalLostPasture) )*100) %>%
+  dplyr::select(fips5, currentIrr_20152017_acres, active, irrAreaLost_ha, totalLostDrylandAg, totalLostPasture, percentLost_pasture, percentLost_pasture2)
+
+# spatialize county numbers and fix county sf object for spdf conversion
+countyData <- counties %>%
+  left_join(master, by = 'fips5') %>%
+  mutate(irrAreaLost_1000ha = irrAreaLost_ha / 1000)
+
+# set NA values to 0
+countyData[is.na(countyData$irrAreaLost_1000ha),'irrAreaLost_1000ha'] <- 0
+countyData[is.na(countyData$percentLost_pasture),'percentLost_pasture'] <- 0
+
+
+types <- vapply(st_geometry(countyData), function(x) {
+  class(x)[2]
+}, '')
+countyData2 <- countyData[grepl('*POLYGON', types),]
+
+bad <-  countyData[!grepl('*POLYGON', types),]
+test <- st_collection_extract(bad, "POLYGON")
+
+countyData3 <- rbind(countyData2, test)
+
+countySp <- as(countyData3, 'Spatial')
+
+
+```
+
+
+# Make maps
+
+## vis parameters
+
+```{r mapVisParams}
+panelBackground <- 'gray5'
+stateLines <- 'gray10'
+stateFill <- 'gray80'
+aquiferFill <- 'gray20'
+aimFill <- 'gray50'
+mapXLim <- c(-430000,440000)
+mapYLim <- c(-1000000,450000)
+
+irrLossPalette <- brewer.pal(n = 9, name = 'OrRd')
+irrLossRamp <- colorRampPalette(irrLossPalette)
+
+pasturePal2 <- brewer.pal(n=9, name = 'YlGnBu')
+pasturePal2Ramp <- colorRampPalette(pasturePal2)
+
+pasturePal3 <- brewer.pal(n=9, name = 'GnBu')
+pasturePal3Ramp <- colorRampPalette(pasturePal3)
+```
+
+## Irrigated Area Loss by County (2100)
+
+```{r countyIrrLoss2100, fig.width = 3, fig.height = 5, dev = c('png','pdf'), dpi = 300}
+
+spplot(countySp, 'irrAreaLost_1000ha', col.regions = c('gray50',irrLossRamp(19)),
+       xlim = mapXLim, ylim = mapYLim,
+       colorkey = list(space = 'bottom'),
+       par.settings = list(panel.background = list(col=panelBackground))) +
+  latticeExtra::layer(sp.polygons(states, lwd=.8, col=stateLines)) +
+  latticeExtra::layer(sp.polygons(aquifer, lwd=.8, col=NA, fill = aquiferFill), under=T) +
+   # latticeExtra::layer(sp.polygons(minBound, lwd=.8, col=NA, fill = aimFill), under=T) +
+  latticeExtra::layer(sp.polygons(states, lwd=.8, col=NA, fill = stateFill), under = TRUE) +
+  latticeExtra::layer(sp.polygons(county6, lwd = 2, col = 'blue'))
+```
+
+## Proportion Pasture
+
+
+```{r pasturePercentLoss2100_percentOfStart_color2, fig.width = 3, fig.height = 5, dev = c('png','pdf'), dpi = 300}
+
+spplot(countySp, 'percentLost_pasture', 
+       col.regions = c('gray50',pasturePal2Ramp(19)),
+       xlim = mapXLim, ylim = mapYLim,
+       colorkey = list(space = 'bottom'),
+       par.settings = list(panel.background = list(col=panelBackground))) +
+  latticeExtra::layer(sp.polygons(states, lwd=.8, col=stateLines)) +
+  latticeExtra::layer(sp.polygons(aquifer, lwd=.8, col=NA, fill = aquiferFill), under=T) +
+   # latticeExtra::layer(sp.polygons(minBound, lwd=.8, col=NA, fill = aimFill), under=T) +
+  latticeExtra::layer(sp.polygons(states, lwd=.8, col=NA, fill = stateFill), under = TRUE)  +
+  latticeExtra::layer(sp.polygons(county6, lwd = 1.75, col = 'darkorchid2'))
+```
+
