@@ -1,0 +1,174 @@
+---
+title: "Figures"
+author: "Jill Deines"
+date: "8/17/2019"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    keep_md: true
+---
+
+Goal: Make figures showing irrigation transition trends for 6 selected counties
+
+```{r knitrOpts, echo=FALSE}
+library(knitr)
+opts_chunk$set(cache=FALSE, fig.path='../figure/02.30_figs_CountyLinePlot/')
+```
+
+**R Packages Needed**
+
+```{r packages, message=FALSE, echo=TRUE, eval=TRUE}
+library(tidyverse)
+library(cowplot)
+
+# directories: cleaned data from 00.23
+library(here)
+rootDir <- here::here()
+subfolder <- 'data/tabular'
+filename <- 'counties_allAquiferContained_Irr_currentRecent_rserev1_annualIrrLoss_rsSuit_acres_billFormated_selectedCounties.csv'
+
+sessionInfo()
+```
+
+
+# Load
+
+```{r load}
+# formatted data
+projections <- read_csv(paste0(rootDir, '/', subfolder, '/', filename))
+
+# var name recoders
+countyNames <- data.frame(fips5 = c('20055', '31057', '48111', '08125',
+                                                 '35041', '40139'),
+                          countyName = c('Finney (KS)', 'Dundy (NE)','Dallam (TX)',
+                                         'Yuma (CO)', 'Roosevelt (NM)', 'Texas (OK)'))
+categories <- data.frame(var2 = c('activeIrr','cumLoss_drylandAg','cumLoss_pasture'),
+                         varType = c('Active Irrigation','Loss to Dryland Crops',
+                                     'Loss to Pasture'))
+# max irr area
+irrMax <- projections %>%
+  group_by(fips5) %>%
+  summarize(maxIrr_ha = max(activeIrr_acres) * 0.404686)
+
+# convert cumulative columns to hectares/long format
+projLong <- projections %>%
+  dplyr::select(-c(drylandAg, pasture)) %>%
+  tidyr::gather(., key = variable, value = value, activeIrr_acres:cumLoss_pasture_acres) %>%
+  mutate(value_ha = value * 0.404686,
+         var2 = str_remove(variable, '_acres')) %>%
+  left_join(irrMax) %>%
+  mutate(value_percent = value_ha/maxIrr_ha) %>%
+  dplyr::select(-c(variable, value))  %>%
+  left_join(countyNames) %>%
+  left_join(categories)
+```
+
+Numbers for Cait
+
+```{r caitNums}
+# starting and ending numbers
+summaries <- projections %>%
+  left_join(countyNames) %>%
+  group_by(countyName) %>%
+  summarize(startingIrr_ha = max(activeIrr_acres) * 0.404686,
+            endingIrr_ha = min(activeIrr_acres) * 0.404686,
+            endingDryland_ha = max(cumLoss_drylandAg_acres) * 0.404686,
+            endingPasture_ha = max(cumLoss_pasture_acres) * 0.404686)
+
+kable(summaries)
+
+# differences (absolute and percentaages)
+diffs <- summaries %>%
+  mutate(abs_diff_ha = startingIrr_ha - endingIrr_ha,
+         perc_diff_ha = (startingIrr_ha - endingIrr_ha)/startingIrr_ha * 100,
+         percentPasture = endingPasture_ha/(endingDryland_ha + endingPasture_ha) * 100,
+         percentStarting = endingPasture_ha/startingIrr_ha*100) %>%
+  dplyr::select(-c(startingIrr_ha, endingIrr_ha)) 
+kable(diffs)
+
+diffs %>% arrange(perc_diff_ha)
+diffs %>% arrange(percentPasture)
+diffs %>% arrange(endingPasture_ha)
+```
+
+
+# 6 County Multipanel
+
+## absolute area
+
+```{r 6panel_ha, fig.width = 6.5, fig.height = 4.5, dev = c('png','pdf'), dpi = 300}
+
+ggplot(projLong,
+       aes(x = year, y = value_ha/1000, color = varType, group = varType)) +
+  geom_line() +
+  facet_wrap(~countyName) +
+  scale_x_continuous(breaks = c(2025, 2050, 2075, 2100)) +
+  scale_color_manual(values = c('#1f78b4', '#33a02c', '#ff7f00')) +
+  ylab('Area (1000 ha)') + xlab('Year') +
+  theme_bw() + theme(legend.position = 'top',
+                     legend.title = element_blank(),
+                     axis.text=element_text(size=10),
+                     legend.text=element_text(size=10),
+                     axis.title=element_text(size=11),
+                     #panel.grid.minor = element_blank(),
+                     panel.grid.major = element_blank())
+
+```
+
+
+
+
+# Economic impact summaries
+
+```{r econSTuff}
+cropRevs <- c(626.52,572.95,797.86,195.29,624.14,660.79)
+mean(cropRevs)
+
+pastureRevs <- c(51.44,54.29,51.44,53.31,54.29,57.49)
+mean(pastureRevs)
+
+mean(cropRevs)/mean(pastureRevs)
+
+#county differences
+countyFactor0 <- data.frame(crop = cropRevs,
+                           pasture = pastureRevs)
+countyFactor <- countyFactor0 %>%
+  mutate(factor = crop/pasture)
+countyFactor
+
+# gross tallies
+grossRevs1 <- c(547564295, 1086610526, 488820290,154946109,1279628015,3031785080)
+grossRevs2 <- c(362517099,935337299,268002433,121659738,1123041191,2243459122)
+
+gross0 <- data.frame(scenario1 = grossRevs1,
+                    scenario2 = grossRevs2)
+gross <- gross0 %>%
+  mutate(diff_abs = scenario1 - scenario2,
+         diff_perc = (scenario1 - scenario2)/scenario1*100)
+gross
+
+gross %>%
+  summarize(scen1_sum = sum(scenario1),
+            scen2_sum = sum(scenario2)) %>%
+  mutate(diff_abs = scen1_sum - scen2_sum,
+         diff_perc = (scen1_sum - scen2_sum)/scen1_sum*100)
+
+# value added tallies
+valu1 <- c(317587291,619368000,268851159,99165510,716591688,1758435347)
+value2 <- c(210277317,532667200,147857833,76737528,628007929,1297450427)
+
+valu0 <- data.frame(scenario1 = valu1,
+                    scenario2 = value2)
+valu <- valu0 %>%
+  mutate(diff_abs = scenario1 - scenario2,
+         diff_perc = (scenario1 - scenario2)/scenario1*100)
+valu
+
+valu %>%
+  summarize(scen1_sum = sum(scenario1),
+            scen2_sum = sum(scenario2)) %>%
+  mutate(diff_abs = scen1_sum - scen2_sum,
+         diff_perc = (scen1_sum - scen2_sum)/scen1_sum*100)
+```
+
