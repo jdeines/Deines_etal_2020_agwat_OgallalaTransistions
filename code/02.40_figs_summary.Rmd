@@ -1,0 +1,60 @@
+---
+title: "Figures"
+author: "Cait Rottler"
+date: "8/17/2019"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    keep_md: true
+---
+
+Goal: Make summary figure for land use transitions and economic implications
+
+note: code by Cait Rottler
+
+```{r knitrOpts, echo=FALSE}
+library(knitr)
+opts_chunk$set(cache=FALSE, fig.path='../figure/02.40_figs_summaryPlot/')
+```
+
+**R Packages Needed**
+
+```{r packages, message=FALSE, echo=TRUE, eval=TRUE}
+library(dplyr)
+library(plotly)
+library(ggplot2)
+library(svglite)
+
+
+# directories: cleaned data from 00.23
+library(here)
+rootDir <- here::here()
+subfolder <- 'data/tabular'
+filename <- 'summaryNumbers_forFigure4_Cait.csv'
+
+sessionInfo()
+```
+
+# load and plot
+modified from Cait's code for clarity
+
+note Cait heavily modified the aesthetics in external software
+
+```{r fig4_summaryPlot}
+HPA_Transitions_Graphs<-read.csv(paste0(rootDir, '/', subfolder, '/', filename)) %>%
+  filter(Type != 'Irr')
+
+ggplot(HPA_Transitions_Graphs, aes(x=County,  width=.4)) +
+  geom_col(aes(y=PercDiff), fill="seagreen", position = position_nudge(x=.4)) +
+  geom_col(aes(y=Percent,fill=Type), position = 'stack')+
+  scale_y_continuous(breaks = c(0, 25, 50, 75, 100)) +
+  ylim(0, 100) +
+  ylab('Percent') + xlab('') +
+  theme(
+    axis.title.y.left=element_text(color="blue"),
+    axis.text.y.left=element_text(color="blue"),
+    axis.title.y.right=element_text(color="red"),
+    axis.text.y.right=element_text(color="red")
+  ) + theme_classic()
+```
