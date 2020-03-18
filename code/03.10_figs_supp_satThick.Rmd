@@ -1,0 +1,67 @@
+---
+title: "Supplementary Figures - saturated thickness"
+author: "Jill Deines"
+date: "12/17/2019"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    keep_md: true
+---
+
+Goal: Supplementary figure showing distribution of saturated thickness for current irrigation.
+
+```{r knitrOpts, echo=FALSE}
+library(knitr)
+opts_chunk$set(cache=FALSE, fig.path='../figure/03.10_figs_supp_satThick/')
+```
+
+**R Packages Needed**
+
+```{r packages, message=FALSE, echo=TRUE, eval=TRUE}
+library(tidyverse)
+
+# directories: data exported from users/jdeines/HPATransitions/01.40_satThick_byIrrigation
+library(here)
+rootDir <- here::here()
+subfolder <- 'data/tabular'
+filename <- 'HPA_subregion_saturatedThicknessPercentiles2016_currIrr2015-2017.csv'
+
+sessionInfo()
+```
+
+
+# Load
+
+```{r load}
+# formatted data
+thickness0 <- read_csv(paste0(rootDir, '/', subfolder, '/', filename)) %>%
+  dplyr::select(-c(`system:index`,`.geo`)) %>%
+  mutate(masterid = substr(masterid, start = 1, stop = 3))
+
+thickness <- thickness0 %>%
+  tidyr::gather(., key = percentile, value = value, p1:p99) %>%
+  mutate(percentile = as.numeric(substring(percentile,2)))
+
+```
+
+# plot
+
+```{r satThickness_boxplot, fig.width = 4, fig.height = 3.5, dev=c('pdf','png'), dpi = 300}
+ggplot(thickness0,
+       aes(x = masterid, y = p50, fill =  masterid, group = masterid)) +
+  geom_crossbar(aes(y = p50, ymin = p25, ymax = p75)) +
+  geom_point(aes(y = p5), pch = 4, cex = 2) +
+  geom_point(aes(y = p95), pch = 4, cex = 2) +
+  geom_hline(yintercept = 9, linetype = 'dashed', color = 'black') +
+  scale_fill_manual(values=c("goldenrod2", "cornflowerblue", "indianred2")) +
+  ylab('Saturated Thickness (m)') +
+  xlab('Aquifer Region') +
+  theme_bw() + theme(legend.position = c(.8,.8),
+                     legend.title = element_blank(),
+                     axis.text=element_text(size=10),
+                     legend.text=element_text(size=10),
+                     axis.title=element_text(size=11),)
+```
+
+
