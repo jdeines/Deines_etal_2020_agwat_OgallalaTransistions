@@ -24,7 +24,7 @@ library(tidyverse)
 # directories: data exported from users/jdeines/HPATransitions/01.40_satThick_byIrrigation
 library(here)
 rootDir <- here::here()
-subfolder <- 'data/tabular'
+subfolder <- 'data/tabular/supplementFiles'
 filename <- 'HPA_subregion_saturatedThicknessPercentiles2016_currIrr2015-2017.csv'
 
 sessionInfo()
@@ -47,7 +47,7 @@ thickness <- thickness0 %>%
 
 # plot
 
-```{r satThickness_boxplot, fig.width = 4, fig.height = 3.5, dev=c('pdf','png'), dpi = 300}
+```{r satThickness_boxplot, fig.width = 4, fig.height = 3.5, dev=c('png'), dpi = 300}
 ggplot(thickness0,
        aes(x = masterid, y = p50, fill =  masterid, group = masterid)) +
   geom_crossbar(aes(y = p50, ymin = p25, ymax = p75)) +
