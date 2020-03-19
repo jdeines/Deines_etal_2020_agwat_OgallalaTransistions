@@ -1,0 +1,72 @@
+---
+title: "Figure 5: economic summary"
+author: "Jill Deines"
+date: "8/17/2019"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    keep_md: true
+---
+
+Goal: Make summary figure for economic projections (annual revenue and value added)
+
+note: code by Sam Zipper
+
+```{r knitrOpts, echo=FALSE}
+library(knitr)
+opts_chunk$set(cache=FALSE, fig.path='../figure/02.50_figs_summaryEcon/')
+```
+
+**R Packages Needed**
+
+```{r packages, message=FALSE, echo=TRUE, eval=TRUE}
+library(tidyverse)
+
+
+# directories: cleaned data from 00.23
+library(here)
+rootDir <- here::here()
+subfolder <- 'data/tabular'
+filename <- 'HPA_Transitions_Economic_Model-20190924.csv'
+
+sessionInfo()
+```
+
+# load summary table 
+and make figure
+
+```{r fig5_econSummary, fig.width = 3.75, fig.height = 6}
+df <- read_csv(paste0(rootDir, '/', subfolder, '/', filename))
+
+df.long <- reshape2::melt(df, id = c("state", "Year", "scenario"))
+
+p <- 
+  ggplot(df.long, aes(x = Year, y = value/1e6, color = factor(scenario))) +
+  geom_line() +
+  scale_x_continuous(name = "Year", breaks = seq(2025, 2100, 25)) +
+  scale_y_continuous(name = "Dollars [million]") +
+  scale_color_manual(name = "Scenario", values = c("1" = "#33a02c", "2" = "#ff7f00"),
+                     labels = c("1" = "Simple\nScenario", "2" = "Land Use\nSuitability\nScenario")) +
+  facet_grid(state ~ variable, scales = "free_y",
+             labeller = as_labeller(c("revenue" = "Revenue", "valueAdded" = "Value Added",
+                                      "TX" = "Dallam (TX)",
+                                      "CO" = "Yuma (CO)",
+                                      "NM" = "Roosevelt (NM)",
+                                      "KS" = "Finney (KS)",
+                                      "NE" = "Dundy (NE)",
+                                      "OK" = "Texas (OK)"))) +
+  theme_bw() + 
+  theme(legend.position = 'bottom',
+              legend.title = element_blank(),
+              axis.text=element_text(size=10),
+              legend.text=element_text(size=10),
+              axis.title=element_text(size=11),
+              #panel.grid.minor = element_blank(),
+              panel.grid.major = element_blank()) +
+ ggsave(paste0(rootDir, '/figure/02.50_figs_summaryEcon/',"HPAecon_Timeseries.png"), width = 95, height = 190, units = "mm")
+ggsave(paste0(rootDir, '/figure/02.50_figs_summaryEcon/',"HPAecon_Timeseries.pdf"), p, width = 95, height = 190, units = "mm", device = cairo_pdf)
+
+p
+```
+

@@ -1,6 +1,6 @@
 ---
 title: "Figures"
-author: "Cait Rottler"
+author: "Jill Deines"
 date: "8/17/2019"
 output: 
   html_document:
