@@ -10,6 +10,7 @@
 
 require(ggplot2)
 require(dplyr)
+library(tidyr)
 require(sf)
 require(reshape2)
 require(gridExtra)
@@ -67,13 +68,13 @@ sf_counties <-
   sf::st_read(stringsAsFactors=F) %>% 
   dplyr::left_join(df_area, by="masterid") %>% 
   dplyr::left_join(df_use, by="masterid") %>% 
-  transform(gwPrc_lt_depletionPrc = irrigation_gw_prc <= area_loss_prc)
+  mutate(gwPrc_lt_depletionPrc = irrigation_gw_prc <= area_loss_prc)
 
 
 sf_counties_long <-
   sf_counties %>% 
   dplyr::select(geometry, area_loss_prc, irrigation_gw_prc, state_name) %>% 
-  reshape2::melt(id=c("geometry", "state_name"))
+  tidyr::gather(., key = variable, value = value, area_loss_prc:irrigation_gw_prc)
 
 p.maps <- 
   ggplot(sf_counties_long, aes(fill=value)) +
@@ -105,7 +106,7 @@ p.scatter <-
         panel.grid=element_blank())
 p.scatter
 
-ggsave(paste0(rootDir, "/figure/figure/03.20_figs_supp_groundwater/IrrigatedAreaVsUSGSwaterUse.png"), 
+ggsave(paste0(rootDir, "/figure/03.20_figs_supp_groundwater/IrrigatedAreaVsUSGSwaterUse.png"), 
               grid.arrange(p.maps,
                            p.scatter, 
                            nrow=1,
