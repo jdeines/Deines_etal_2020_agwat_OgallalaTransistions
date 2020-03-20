@@ -20,17 +20,10 @@ Deines, J.M., M.E. Schipanski, B. Golden, S.C. Zipper, S. Nozari, C. Rottler, B.
   * NRCS [gSSURGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/home/?cid=nrcs142p2_053628) soil data are available from https://nrcs.app.box.com/v/soils
   
   
-
-#### Data included here
-
-* `data/tabular`
-* `data/GIS/boundaries`
-
 ### Code
 
-Script filenames are numbered in sequential order of use. The majority of processing is done through Google Earth Engine's online code editor (files with extension *.js) and with [R Markdown](https://rmarkdown.rstudio.com/) (*.Rmd) within an R project structure. Operational scripts have extension .Rmd; knitted outputs in .md (for easing viewing on Github) and .html (for desktop viewing) are also provided.
+Script filenames are numbered by manuscript figure numbers. Code primarily uses [R Markdown](https://rmarkdown.rstudio.com/) (*.Rmd) within an R project structure. Operational scripts have extension .Rmd; knitted outputs in .md (for easing viewing on Github) and .html (for desktop viewing) are also provided. When this repository is cloned into an R project, the `here` package should manage all relative filepaths.
 
-#### Google Earth Engine (GEE) scripts
-GEE was used to access previously published irrigation maps, groundwater levels, and USDA crop type maps. Scripts used to summarize these assets for the study areas include the following and can be run in the [Google Earth Engine Code Editor](https://code.earthengine.google.com/). To learn more about GEE and/or sign up for a free account, go [here](https://developers.google.com/earth-engine/).
+
 
 
