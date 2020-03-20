@@ -1,7 +1,7 @@
 # Deines et al. 2020: Derived data and analysis code
 
-21 February 2020
-Code by: Jillian Deines with contributions from Samuel Zipper and Caitlin Rottler
+21 February 2020  
+Code by: Jillian Deines with contributions from Samuel Zipper and Caitlin Rottler  
 Contact: jillian.deines@gmail.com
 
 This codebase accompanies the paper:
