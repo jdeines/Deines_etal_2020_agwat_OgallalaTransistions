@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3661369.svg)](https://doi.org/10.5281/zenodo.3661369)
+
 # Deines et al. 2020: Derived data and analysis code
 
 21 February 2020  
